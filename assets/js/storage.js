@@ -243,18 +243,22 @@ export async function borrarArchivo(rutaCompleta) {
   }
 }
 
-/* ---------- Respaldo / restauración (para modo local o traspasos) ---------- */
+/* ---------- Respaldo / restauración (traspaso manual entre dispositivos) ---------- */
+const MODULOS_RESPALDO = ["partes", "documentacion", "biblioteca", "instructores", "corrector", "radiograma", "marca"];
+
+// Exporta los datos del módulo actual (funciona igual en modo carpeta o local).
 export async function exportarRespaldo() {
   const data = {};
-  const keys = await idbKeys(DB_STORE_DATA);
-  for (const k of keys) data[k] = await idbGet(DB_STORE_DATA, k);
+  for (const nombre of MODULOS_RESPALDO) {
+    const val = await leerJSON(nombre, null);
+    if (val !== null) data[`${nombre}.json`] = val;
+  }
   return { _tipo: "cmc-respaldo", _fecha: new Date().toISOString(), data };
 }
 
 export async function importarRespaldo(obj) {
   if (!obj || obj._tipo !== "cmc-respaldo") throw new Error("Archivo de respaldo no válido");
   for (const [k, v] of Object.entries(obj.data || {})) {
-    if (modo === "carpeta") await guardarJSON(k.replace(/\.json$/, ""), v);
-    else await idbSet(DB_STORE_DATA, k, v);
+    await guardarJSON(k.replace(/\.json$/, ""), v);
   }
 }

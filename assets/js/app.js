@@ -214,6 +214,8 @@ async function abrirConfig() {
   } }, "💾 Usar solo este equipo"));
 
   // Respaldo
+  const respaldoInfo = h("p", { class: "muted small", style: "margin:0 0 8px" },
+    "Para pasar datos entre tu celular y tu laptop: exporta el respaldo aquí, envíatelo (WhatsApp, correo, o guárdalo en tu carpeta de OneDrive) y ábrelo con \"Importar respaldo\" en el otro aparato.");
   const respaldo = h("div", { class: "btn-row mt" },
     h("button", { class: "btn btn--gold btn--sm", onclick: async () => {
       const obj = await store.exportarRespaldo();
@@ -227,7 +229,11 @@ async function abrirConfig() {
     h("label", { class: "btn btn--ghost btn--sm", style: "cursor:pointer" }, "⬆️ Importar respaldo",
       h("input", { type: "file", accept: "application/json", style: "display:none", onchange: async (ev) => {
         const f = ev.target.files[0]; if (!f) return;
-        try { await store.importarRespaldo(JSON.parse(await f.text())); toast("Respaldo importado", "ok"); }
+        try {
+          await store.importarRespaldo(JSON.parse(await f.text()));
+          toast("Respaldo importado. Recargando…", "ok");
+          setTimeout(() => location.reload(), 900);
+        }
         catch (err) { toast("Respaldo no válido", "err"); }
       } })));
 
@@ -236,6 +242,7 @@ async function abrirConfig() {
     h("h3", { style: "margin:0 0 6px;font-size:14px;color:var(--verde-700)" }, "Almacenamiento"),
     acciones,
     h("h3", { style: "margin:16px 0 6px;font-size:14px;color:var(--verde-700)" }, "Respaldo manual"),
+    respaldoInfo,
     respaldo,
   );
 
