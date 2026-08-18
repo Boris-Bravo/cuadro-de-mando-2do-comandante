@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#2e3b1f" />
+  <title>Cuadro de Mando y Control del 2do Comandante</title>
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="icon" href="assets/icons/icon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="assets/icons/icon-192.png" />
+  <link rel="stylesheet" href="assets/css/styles.css" />
+</head>
+<body>
+  <div id="app">
+    <!-- Barra superior -->
+    <header class="topbar">
+      <button class="topbar__back" id="btnBack" title="Volver" aria-label="Volver" hidden>&#8592;</button>
+      <div class="topbar__brand" id="brandHome" role="button" tabindex="0" title="Ir al inicio">
+        <img class="topbar__emblema" id="emblemaEjercito" alt="Ejército" hidden />
+        <img class="topbar__logo" id="brandFallback" src="assets/icons/icon.svg" alt="" />
+        <div class="topbar__titles">
+          <span class="topbar__title">CUADRO DE MANDO Y CONTROL</span>
+          <span class="topbar__subtitle">2do Comandante &mdash; Regimiento</span>
+        </div>
+        <img class="topbar__emblema" id="emblemaEceme" alt="ECEME" hidden />
+      </div>
+      <div class="topbar__actions">
+        <span class="storage-pill" id="storagePill" title="Estado del almacenamiento">
+          <span class="storage-pill__dot"></span>
+          <span class="storage-pill__text">Sin carpeta</span>
+        </span>
+        <button class="iconbtn" id="btnSettings" title="Configuración" aria-label="Configuración">&#9881;</button>
+      </div>
+    </header>
+
+    <!-- Contenido -->
+    <main id="view" class="view"></main>
+
+    <!-- Pie -->
+    <footer class="footer">
+      <span id="footerInfo">Cuadro de Mando y Control &bull; v1.0 &bull; Diseño: My. Boris Bravo</span>
+    </footer>
+  </div>
+
+  <!-- Crédito lateral (autor de la idea) -->
+  <div class="credito-lateral" aria-hidden="true">DISEÑO: MY. BORIS BRAVO</div>
+
+  <!-- Contenedor de notificaciones -->
+  <div id="toasts" class="toasts" aria-live="polite"></div>
+
+  <script type="module" src="assets/js/app.js"></script>
+</body>
+</html>

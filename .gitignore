@@ -1,0 +1,7 @@
+# Datos del usuario (nunca deben subirse al repo)
+*.log
+Thumbs.db
+.DS_Store
+
+# Configuración local del harness/editor
+.claude/settings.local.json

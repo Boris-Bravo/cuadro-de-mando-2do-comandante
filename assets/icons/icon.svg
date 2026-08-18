@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3b4a28"/>
+      <stop offset="1" stop-color="#1c2411"/>
+    </linearGradient>
+    <linearGradient id="oro" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#e6c85a"/>
+      <stop offset="1" stop-color="#b9962c"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="96" fill="url(#bg)"/>
+  <path d="M256 64 L416 120 V264 C416 360 344 424 256 456 C168 424 96 360 96 264 V120 Z"
+        fill="none" stroke="url(#oro)" stroke-width="14"/>
+  <path d="M256 96 L388 142 V262 C388 340 328 394 256 422 C184 394 124 340 124 262 V142 Z"
+        fill="rgba(107,122,58,0.35)"/>
+  <path d="M256 150 l26 54 60 8 -44 42 11 60 -53 -29 -53 29 11 -60 -44 -42 60 -8 z" fill="url(#oro)"/>
+  <text x="256" y="360" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="120" font-weight="800" fill="#e6c85a">2C</text>
+</svg>

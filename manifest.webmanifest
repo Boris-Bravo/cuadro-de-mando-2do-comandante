@@ -1,0 +1,17 @@
+{
+  "name": "Cuadro de Mando y Control del 2do Comandante",
+  "short_name": "Cuadro de Mando",
+  "description": "Herramientas del 2do Comandante del Regimiento: partes diarios, seguimiento de documentación, biblioteca, libro de vida de instructores y corrector de formato.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#1c2411",
+  "theme_color": "#2e3b1f",
+  "lang": "es",
+  "icons": [
+    { "src": "assets/icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "assets/icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "assets/icons/icon-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "cmc",
+      "runtimeExecutable": "powershell",
+      "runtimeArgs": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "servidor.ps1", "-Puerto", "8750", "-SinNavegador"],
+      "port": 8750
+    }
+  ]
+}
