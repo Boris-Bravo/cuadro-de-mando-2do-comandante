@@ -299,6 +299,26 @@ async function pantallaBienvenida() {
   vista.appendChild(card);
 }
 
+/* ---------------- Saludo por voz ---------------- */
+function saludoVoz() {
+  try {
+    if (!("speechSynthesis" in window)) return;
+    const hora = new Date().getHours();
+    const saludo = hora < 12 ? "Buenos días" : hora < 19 ? "Buenas tardes" : "Buenas noches";
+    const texto = `${saludo}, 2do. Comandante`;
+    const hablar = () => {
+      const u = new SpeechSynthesisUtterance(texto);
+      const voces = speechSynthesis.getVoices();
+      const esVoz = voces.find((v) => (v.lang || "").toLowerCase().startsWith("es"));
+      u.lang = esVoz ? esVoz.lang : "es-ES";
+      if (esVoz) u.voice = esVoz;
+      speechSynthesis.speak(u);
+    };
+    if (speechSynthesis.getVoices().length) hablar();
+    else speechSynthesis.addEventListener("voiceschanged", hablar, { once: true });
+  } catch {}
+}
+
 /* ---------------- Arranque ---------------- */
 async function arrancar() {
   document.getElementById("btnSettings").addEventListener("click", abrirConfig);
@@ -322,6 +342,8 @@ async function arrancar() {
   if ("serviceWorker" in navigator) {
     navigator.serviceWorker.register("sw.js").catch(() => {});
   }
+
+  saludoVoz();
 }
 
 window.addEventListener("hashchange", () => {
