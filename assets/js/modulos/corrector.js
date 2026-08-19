@@ -15,6 +15,7 @@
 import { h, limpiar, toast, modal, confirmar, fechaHoy, fechaLarga, idNuevo } from "../ui.js";
 import { extraerDocumento } from "../docparser.js";
 import { blobWord, descargar, escapar } from "../export-word.js";
+import { Typo } from "../vendor/typo.js";
 
 const ARCHIVO = "corrector";
 const MODELO = "claude-opus-4-8";
@@ -45,6 +46,23 @@ const ERRORES_COMUNES = {
 };
 
 let ctx, cont, datos, ultimoDoc = null, ultimoAnalisis = null, formatoSel = "";
+let diccionario = null, cargandoDiccionario = null;
+
+// Carga el diccionario español (Hunspell) una sola vez, offline luego de la primera vez (queda cacheado por el Service Worker).
+async function obtenerDiccionario() {
+  if (diccionario) return diccionario;
+  if (cargandoDiccionario) return cargandoDiccionario;
+  cargandoDiccionario = (async () => {
+    const [aff, dic] = await Promise.all([
+      fetch("assets/dict/es/es.aff").then((r) => r.text()),
+      fetch("assets/dict/es/es.dic").then((r) => r.text()),
+    ]);
+    diccionario = new Typo("es", aff, dic);
+    try { diccionario.suggest("a"); } catch {} // precalienta el índice interno de sugerencias (costoso solo la primera vez)
+    return diccionario;
+  })();
+  return cargandoDiccionario;
+}
 
 export async function correctorModulo(contenedor, contexto) {
   ctx = contexto; cont = contenedor;
@@ -69,11 +87,13 @@ function render() {
 
   // Estado de las referencias de revisión
   const regOk = ((datos.ajustes.reglamento || "").length > 200);
-  cont.appendChild(h("div", { class: "chips", style: "margin-bottom:14px" },
+  cont.appendChild(h("div", { class: "chips", style: "margin-bottom:6px" },
     h("span", { class: "chip", style: "cursor:default" },
       regOk ? "✅ Reglamento de Correspondencia Militar cargado" : "⚠️ Reglamento no cargado"),
     h("span", { class: "chip", style: "cursor:default" },
       `📁 ${datos.ajustes.formatos.length} formato(s) de referencia`)));
+  cont.appendChild(h("p", { class: "muted small", style: "margin:0 0 14px" },
+    "La revisión automática (ortografía y estructura) funciona sin internet. El Reglamento cargado arriba solo se usa en \"🌐 Revisión profunda con IA\" (requiere clave de API e internet) — verifica que la tenga configurada en \"⚙️ Reglas / IA\" si quiere que la IA la tenga en cuenta."));
 
   // Selector de formato de referencia
   const sel = h("select", { onchange: (e) => { formatoSel = e.target.value; } },
@@ -98,7 +118,7 @@ function render() {
 async function analizar(file) {
   const res = document.getElementById("resultado");
   limpiar(res);
-  res.appendChild(h("div", { class: "panel" }, h("p", { class: "muted" }, "⏳ Leyendo el documento…")));
+  res.appendChild(h("div", { class: "panel" }, h("p", { class: "muted" }, "⏳ Leyendo el documento y revisando ortografía… (la primera vez puede tardar unos segundos, mientras se carga el diccionario)")));
 
   let doc;
   try {
@@ -112,12 +132,12 @@ async function analizar(file) {
   }
 
   const formato = datos.ajustes.formatos.find((f) => f.id === formatoSel) || null;
-  const hallazgos = revisarOffline(doc, formato);
+  const hallazgos = await revisarOffline(doc, formato);
   ultimoAnalisis = { nombre: file.name, doc, hallazgos, formato, iaTexto: null };
   pintarResultado(file.name, doc, hallazgos);
 }
 
-function revisarOffline(doc, formato) {
+async function revisarOffline(doc, formato) {
   const H = [];
   const texto = doc.texto || "";
   const aj = datos.ajustes;
@@ -171,6 +191,7 @@ function revisarOffline(doc, formato) {
   // Ortografía / tipografía (todos los formatos)
   H.push(...revisarTipografia(texto));
   H.push(...revisarOrtografia(texto));
+  H.push(...(await revisarOrtografiaReal(texto)));
 
   if (H.filter((x) => x.nivel !== "ok").length === 0) {
     H.push(aviso("ok", "General", "No se detectaron problemas evidentes en la revisión offline."));
@@ -224,6 +245,39 @@ function revisarOrtografia(texto) {
     claves.slice(0, 15).forEach((p) => {
       H.push(aviso("aviso", "Posible error ortográfico", `"${p}" (×${encontrados[p]}) → ${ERRORES_COMUNES[p]}`));
     });
+  }
+  return H;
+}
+
+// Corrección ortográfica real, con diccionario español (Hunspell), offline.
+async function revisarOrtografiaReal(texto) {
+  const H = [];
+  let dicc;
+  try { dicc = await obtenerDiccionario(); }
+  catch (e) { console.error("No se pudo cargar el diccionario:", e); return H; }
+
+  const palabras = texto.match(/[a-záéíóúüñA-ZÁÉÍÓÚÜÑ]+(-[a-záéíóúüñA-ZÁÉÍÓÚÜÑ]+)*/g) || [];
+  const conteo = {};
+  for (const p of palabras) {
+    if (p.length < 3) continue;
+    if (p === p.toUpperCase()) continue; // sigla/membrete, no se revisa
+    if (dicc.check(p)) continue;
+    if (dicc.check(p.toLowerCase())) continue;
+    conteo[p] = (conteo[p] || 0) + 1;
+  }
+  const claves = Object.keys(conteo).sort((a, b) => conteo[b] - conteo[a]);
+  const LIMITE_MOSTRAR = 40;
+  const LIMITE_SUGERENCIAS = 12; // dicc.suggest() puede tardar varios segundos por palabra; se acota para no colgar la revisión
+  if (claves.length) {
+    claves.slice(0, LIMITE_MOSTRAR).forEach((p, i) => {
+      let sugerencias = [];
+      if (i < LIMITE_SUGERENCIAS) { try { sugerencias = dicc.suggest(p, 3); } catch { sugerencias = []; } }
+      const detalle = sugerencias.length
+        ? `"${p}" (×${conteo[p]}) → ¿quiso decir: ${sugerencias.join(", ")}?`
+        : `"${p}" (×${conteo[p]}) → no está en el diccionario.`;
+      H.push(aviso("error", "Error ortográfico", detalle));
+    });
+    if (claves.length > LIMITE_MOSTRAR) H.push(aviso("aviso", "Ortografía", `Se encontraron ${claves.length} palabras distintas no reconocidas; se muestran las ${LIMITE_MOSTRAR} más frecuentes.`));
   }
   return H;
 }
