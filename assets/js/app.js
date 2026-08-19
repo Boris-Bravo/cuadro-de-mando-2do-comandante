@@ -270,6 +270,7 @@ async function abrirConfig() {
 async function pantallaBienvenida() {
   limpiar(vista);
   const e = store.estado();
+  const fondo = h("div", { class: "bienvenida-fondo" });
   const card = h("div", { class: "panel", style: "max-width:620px;margin:30px auto" });
   const emb = emblemasHero(); if (emb) card.appendChild(emb);
   card.appendChild(h("h2", { style: "color:var(--verde-800);margin-top:0" }, "Bienvenido, mi 2do Comandante"));
@@ -296,7 +297,8 @@ async function pantallaBienvenida() {
     card.appendChild(h("button", { class: "btn btn--primary", onclick: () => { store.usarLocal(); actualizarPill(); irInicio(); } },
       "Continuar (solo este equipo)"));
   }
-  vista.appendChild(card);
+  fondo.appendChild(card);
+  vista.appendChild(fondo);
 }
 
 /* ---------------- Saludo por voz ---------------- */
@@ -308,7 +310,7 @@ function saludoVoz() {
     if (!("speechSynthesis" in window)) return;
     const hora = new Date().getHours();
     const saludo = hora < 12 ? "Buenos días" : hora < 19 ? "Buenas tardes" : "Buenas noches";
-    const texto = `${saludo}, 2do. Comandante`;
+    const texto = `${saludo}, Segundo Comandante`;
     let dicho = false;
     const disparar = () => {
       document.removeEventListener("click", disparar);
