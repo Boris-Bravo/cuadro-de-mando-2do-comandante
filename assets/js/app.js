@@ -310,22 +310,20 @@ function saludoVoz() {
     const saludo = hora < 12 ? "Buenos días" : hora < 19 ? "Buenas tardes" : "Buenas noches";
     const texto = `${saludo}, 2do. Comandante`;
     let dicho = false;
-    const hablar = () => {
-      if (dicho) return;
-      dicho = true;
-      const u = new SpeechSynthesisUtterance(texto);
-      const voces = speechSynthesis.getVoices();
-      const esVoz = voces.find((v) => (v.lang || "").toLowerCase().startsWith("es"));
-      u.lang = esVoz ? esVoz.lang : "es-ES";
-      if (esVoz) u.voice = esVoz;
-      speechSynthesis.speak(u);
-    };
     const disparar = () => {
       document.removeEventListener("click", disparar);
       document.removeEventListener("touchstart", disparar);
       document.removeEventListener("keydown", disparar);
-      if (speechSynthesis.getVoices().length) hablar();
-      else speechSynthesis.addEventListener("voiceschanged", hablar, { once: true });
+      if (dicho) return;
+      dicho = true;
+      // En móvil (sobre todo iPhone) hay que llamar speak() dentro del mismo
+      // toque, sin esperar nada async, o el navegador lo bloquea igual.
+      const u = new SpeechSynthesisUtterance(texto);
+      u.lang = "es-ES";
+      const voces = speechSynthesis.getVoices();
+      const esVoz = voces.find((v) => (v.lang || "").toLowerCase().startsWith("es"));
+      if (esVoz) { u.voice = esVoz; u.lang = esVoz.lang; }
+      speechSynthesis.speak(u);
     };
     document.addEventListener("click", disparar, { once: true });
     document.addEventListener("touchstart", disparar, { once: true });
