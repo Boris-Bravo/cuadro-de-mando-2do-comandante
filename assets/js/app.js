@@ -300,13 +300,19 @@ async function pantallaBienvenida() {
 }
 
 /* ---------------- Saludo por voz ---------------- */
+// Los navegadores bloquean el audio automático hasta que el usuario interactúa
+// con la página (clic, toque o tecla), así que el saludo se dispara con ese
+// primer contacto — sigue sintiéndose automático, pero sí se llega a escuchar.
 function saludoVoz() {
   try {
     if (!("speechSynthesis" in window)) return;
     const hora = new Date().getHours();
     const saludo = hora < 12 ? "Buenos días" : hora < 19 ? "Buenas tardes" : "Buenas noches";
     const texto = `${saludo}, 2do. Comandante`;
+    let dicho = false;
     const hablar = () => {
+      if (dicho) return;
+      dicho = true;
       const u = new SpeechSynthesisUtterance(texto);
       const voces = speechSynthesis.getVoices();
       const esVoz = voces.find((v) => (v.lang || "").toLowerCase().startsWith("es"));
@@ -314,8 +320,16 @@ function saludoVoz() {
       if (esVoz) u.voice = esVoz;
       speechSynthesis.speak(u);
     };
-    if (speechSynthesis.getVoices().length) hablar();
-    else speechSynthesis.addEventListener("voiceschanged", hablar, { once: true });
+    const disparar = () => {
+      document.removeEventListener("click", disparar);
+      document.removeEventListener("touchstart", disparar);
+      document.removeEventListener("keydown", disparar);
+      if (speechSynthesis.getVoices().length) hablar();
+      else speechSynthesis.addEventListener("voiceschanged", hablar, { once: true });
+    };
+    document.addEventListener("click", disparar, { once: true });
+    document.addEventListener("touchstart", disparar, { once: true });
+    document.addEventListener("keydown", disparar, { once: true });
   } catch {}
 }
 
