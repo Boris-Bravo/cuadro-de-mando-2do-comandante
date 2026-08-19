@@ -57,11 +57,16 @@ body {
 body::before {
   content: "";
   position: fixed; inset: 0; z-index: -2;
-  background:
+  background-image:
     radial-gradient(900px 500px at 12% -8%, rgba(53,227,211,.14), transparent 60%),
     radial-gradient(1000px 600px at 108% 10%, rgba(138,162,77,.16), transparent 55%),
     radial-gradient(800px 700px at 50% 120%, rgba(230,200,90,.08), transparent 60%),
-    linear-gradient(160deg, var(--bg-1), var(--bg-0) 60%);
+    linear-gradient(160deg, rgba(10,16,23,.90), rgba(6,10,14,.94) 60%),
+    url("../img/fondo-multicam.jpg");
+  background-repeat: no-repeat;
+  background-size: auto, auto, auto, auto, cover;
+  background-position: 0 0, 0 0, 0 0, 0 0, center;
+  background-attachment: fixed;
 }
 body::after {
   content: "";

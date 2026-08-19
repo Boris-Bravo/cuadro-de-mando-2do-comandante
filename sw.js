@@ -1,5 +1,5 @@
 /* sw.js — Service Worker: permite usar la app sin internet (offline). */
-const CACHE = "cmc-v6";
+const CACHE = "cmc-v7";
 const ARCHIVOS = [
   "./",
   "./index.html",
@@ -22,6 +22,7 @@ const ARCHIVOS = [
   "./assets/icons/icon-512.png",
   "./assets/icons/ejercito.jpg",
   "./assets/icons/eceme.png",
+  "./assets/img/fondo-multicam.jpg",
 ];
 
 self.addEventListener("install", (e) => {
