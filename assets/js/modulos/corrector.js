@@ -18,7 +18,7 @@ import { blobWord, descargar, escapar } from "../export-word.js";
 import { Typo } from "../vendor/typo.js";
 
 const ARCHIVO = "corrector";
-const MODELO = "claude-opus-4-8";
+const MODELO = "claude-opus-5";
 
 function ajustesDef() {
   return {
@@ -142,25 +142,41 @@ async function revisarOffline(doc, formato) {
   const texto = doc.texto || "";
   const aj = datos.ajustes;
 
+  // Si hay una plantilla de referencia seleccionada y se le detectó formato (fuente/tamaño/márgenes),
+  // esa plantilla manda; si no, se usan las reglas genéricas configuradas en Ajustes.
+  const refFmt = formato && formato.formato;
+  const origenFmt = refFmt ? `según la plantilla "${formato.nombre}"` : "según el reglamento configurado";
+
   if (doc.tipo === "docx") {
     const f = doc.formato || {};
     if (f.fuente) {
-      const ok = aj.fuentes.some((x) => f.fuente.toLowerCase().includes(x.toLowerCase()));
+      const fuentesEsperadas = refFmt && refFmt.fuente ? [refFmt.fuente] : aj.fuentes;
+      const ok = fuentesEsperadas.some((x) => f.fuente.toLowerCase().includes(x.toLowerCase()));
       H.push(ok
-        ? aviso("ok", "Fuente", `Usa "${f.fuente}", permitida.`)
-        : aviso("aviso", "Fuente", `Usa "${f.fuente}". El reglamento sugiere: ${aj.fuentes.join(" o ")}.`));
+        ? aviso("ok", "Fuente", `Usa "${f.fuente}", correcta (${origenFmt}).`)
+        : aviso("aviso", "Fuente", `Usa "${f.fuente}". Debería ser ${fuentesEsperadas.join(" o ")} (${origenFmt}).`));
     }
     if (f.tamanoPt) {
-      H.push(Math.abs(f.tamanoPt - aj.tamano) <= 1
-        ? aviso("ok", "Tamaño de letra", `${f.tamanoPt} pt, correcto.`)
-        : aviso("aviso", "Tamaño de letra", `${f.tamanoPt} pt. Debería ser ${aj.tamano} pt.`));
+      const tamanoEsperado = refFmt && refFmt.tamanoPt ? refFmt.tamanoPt : aj.tamano;
+      H.push(Math.abs(f.tamanoPt - tamanoEsperado) <= 1
+        ? aviso("ok", "Tamaño de letra", `${f.tamanoPt} pt, correcto (${origenFmt}).`)
+        : aviso("aviso", "Tamaño de letra", `${f.tamanoPt} pt. Debería ser ${tamanoEsperado} pt (${origenFmt}).`));
     }
     if (f.margenes) {
       const m = f.margenes;
-      const fuera = ["superior", "inferior", "izquierdo", "derecho"].filter((k) => m[k] && (m[k] < aj.margenes.min || m[k] > aj.margenes.max));
-      H.push(fuera.length === 0
-        ? aviso("ok", "Márgenes", `Dentro del rango (${aj.margenes.min}–${aj.margenes.max} cm).`)
-        : aviso("aviso", "Márgenes", `Revisar: ${fuera.map((k) => `${k} ${m[k].toFixed(1)} cm`).join(", ")}. Rango: ${aj.margenes.min}–${aj.margenes.max} cm.`));
+      if (refFmt && refFmt.margenes) {
+        const mr = refFmt.margenes;
+        const TOL = 0.3; // cm de tolerancia
+        const fuera = ["superior", "inferior", "izquierdo", "derecho"].filter((k) => mr[k] && Math.abs(m[k] - mr[k]) > TOL);
+        H.push(fuera.length === 0
+          ? aviso("ok", "Márgenes", `Coinciden con la plantilla "${formato.nombre}".`)
+          : aviso("aviso", "Márgenes", `Revisar: ${fuera.map((k) => `${k} ${m[k].toFixed(1)} cm (plantilla: ${mr[k].toFixed(1)} cm)`).join(", ")}.`));
+      } else {
+        const fuera = ["superior", "inferior", "izquierdo", "derecho"].filter((k) => m[k] && (m[k] < aj.margenes.min || m[k] > aj.margenes.max));
+        H.push(fuera.length === 0
+          ? aviso("ok", "Márgenes", `Dentro del rango (${aj.margenes.min}–${aj.margenes.max} cm).`)
+          : aviso("aviso", "Márgenes", `Revisar: ${fuera.map((k) => `${k} ${m[k].toFixed(1)} cm`).join(", ")}. Rango: ${aj.margenes.min}–${aj.margenes.max} cm.`));
+      }
     }
 
     const P = (doc.parrafos || []).filter((p) => p.trim());
@@ -187,6 +203,7 @@ async function revisarOffline(doc, formato) {
 
   // Comparación contra el formato de referencia seleccionado
   H.push(...compararFormato(doc, formato));
+  H.push(...compararEncabezadosTabla(doc, formato));
 
   // Ortografía / tipografía (todos los formatos)
   H.push(...revisarTipografia(texto));
@@ -215,6 +232,40 @@ function compararFormato(doc, formato) {
   const faltan = uniq.filter((l) => !texto.includes(l));
   if (!faltan.length) H.push(aviso("ok", "Estructura vs formato", `Contiene los elementos del formato "${formato.nombre}".`));
   else faltan.slice(0, 10).forEach((l) => H.push(aviso("aviso", "Falta según formato", `No se encontró "${l}:" (formato "${formato.nombre}").`)));
+
+  // Orden: de las etiquetas presentes, ¿aparecen en el mismo orden que en la plantilla?
+  const presentes = uniq.filter((l) => texto.includes(l));
+  if (presentes.length >= 2) {
+    const encontrado = presentes.map((l) => ({ l, pos: texto.indexOf(l) })).sort((a, b) => a.pos - b.pos).map((x) => x.l);
+    const desordenado = encontrado.some((l, i) => l !== presentes[i]);
+    H.push(desordenado
+      ? aviso("aviso", "Orden según formato", `El orden no coincide con "${formato.nombre}". Debería ser: ${presentes.join(" → ")}. Se encontró: ${encontrado.join(" → ")}.`)
+      : aviso("ok", "Orden según formato", `Los elementos siguen el orden de "${formato.nombre}".`));
+  }
+  return H;
+}
+
+// Compara las columnas de tabla (relaciones nominales, listas, etc.) contra la plantilla, en Word o Excel.
+function compararEncabezadosTabla(doc, formato) {
+  const H = [];
+  const refEnc = formato && formato.tablaEncabezados;
+  if (!refEnc || !refEnc.length) return H;
+  const encDoc = (doc.tablaEncabezados || []);
+  const encDocUp = encDoc.map((s) => s.toUpperCase().trim());
+  const refUp = refEnc.map((s) => s.toUpperCase().trim());
+  if (!encDoc.length) {
+    H.push(aviso("aviso", "Tabla / columnas", `El formato "${formato.nombre}" tiene una tabla con columnas (${refEnc.join(", ")}), pero no se detectó una tabla en este documento.`));
+    return H;
+  }
+  const faltan = refUp.filter((c) => !encDocUp.includes(c));
+  if (faltan.length) {
+    H.push(aviso("aviso", "Columnas de la tabla", `Faltan columnas según "${formato.nombre}": ${faltan.join(", ")}.`));
+  } else {
+    const mismoOrden = refUp.every((c, i) => encDocUp[i] === c);
+    H.push(mismoOrden
+      ? aviso("ok", "Columnas de la tabla", `Las columnas coinciden con "${formato.nombre}" (${refEnc.join(", ")}).`)
+      : aviso("aviso", "Orden de columnas", `El orden de columnas no coincide con "${formato.nombre}". Esperado: ${refEnc.join(", ")}. Encontrado: ${encDoc.join(", ")}.`));
+  }
   return H;
 }
 
@@ -493,7 +544,7 @@ function abrirFormatos() {
         const doc = await extraerDocumento(fl);
         const texto = (doc.texto || "").slice(0, 40000);
         if (!nombre.value.trim()) nombre.value = fl.name.replace(/\.[^.]+$/, "");
-        datos.ajustes.formatos.push({ id: idNuevo(), nombre: nombre.value.trim() || fl.name, texto, nombreOriginal: fl.name });
+        datos.ajustes.formatos.push({ id: idNuevo(), nombre: nombre.value.trim() || fl.name, texto, nombreOriginal: fl.name, formato: doc.formato || null, tablaEncabezados: doc.tablaEncabezados || [] });
         await persistir(); nombre.value = ""; pintar(); toast("Formato cargado", "ok");
       } catch (err) { console.error(err); toast("No se pudo leer el formato", "err"); }
     } });
@@ -501,7 +552,7 @@ function abrirFormatos() {
     h("div", { class: "form-row mt", style: "align-items:flex-end" },
       h("div", { class: "field" }, h("label", {}, "Nombre"), nombre),
       h("label", { class: "btn btn--primary", style: "cursor:pointer" }, "📎 Cargar formato", file)),
-    h("p", { class: "muted small" }, "Los formatos que cargues se usan para comparar la estructura de los documentos revisados y como referencia para la IA."));
+    h("p", { class: "muted small" }, "Los formatos que cargues (.docx) se usan para comparar, sin costo y sin internet: fuente, tamaño de letra, márgenes y estructura (ASUNTO, REF., etc.) del documento revisado contra tu plantilla. También sirven de referencia adicional si más adelante usas la revisión con IA."));
   modal({ titulo: "📁 Formatos de referencia", cuerpo, acciones: [{ texto: "Cerrar", clase: "btn--ghost", valor: null, onClick: () => render() }] });
 }
 

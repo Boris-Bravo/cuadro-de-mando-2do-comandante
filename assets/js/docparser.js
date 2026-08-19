@@ -91,7 +91,21 @@ async function parseDocx(zip) {
     margenes = { superior: g("top"), inferior: g("bottom"), izquierdo: g("left"), derecho: g("right") };
   }
   const texto = parrafos.join("\n");
-  return { tipo: "docx", parrafos, texto, formato: { fuente, tamanoPt, margenes } };
+
+  // Encabezados de tabla: celdas de la primera fila de la primera tabla (para relaciones nominales, etc.)
+  let tablaEncabezados = [];
+  const tbl = [...doc.getElementsByTagName("*")].find((n) => local(n) === "tbl");
+  if (tbl) {
+    const filas = [...tbl.getElementsByTagName("*")].filter((n) => local(n) === "tr");
+    if (filas.length) {
+      const celdas = [...filas[0].getElementsByTagName("*")].filter((n) => local(n) === "tc");
+      tablaEncabezados = celdas
+        .map((tc) => [...tc.getElementsByTagName("*")].filter((n) => local(n) === "t").map((r) => r.textContent).join(""))
+        .map((s) => (s || "").trim())
+        .filter(Boolean);
+    }
+  }
+  return { tipo: "docx", parrafos, texto, formato: { fuente, tamanoPt, margenes }, tablaEncabezados };
 }
 
 // .xlsx → { tipo, texto, hojas:[{nombre, celdas}] } (texto de cadenas compartidas)
@@ -106,7 +120,29 @@ async function parseXlsx(zip) {
   }
   const textos = [...shared];
   const texto = textos.join("\n");
-  return { tipo: "xlsx", texto, cadenas: shared };
+
+  // Encabezados de tabla: primera fila de la primera hoja (para relaciones nominales, etc.)
+  let tablaEncabezados = [];
+  const hoja1 = Object.keys(zip).filter((k) => /^xl\/worksheets\/sheet\d+\.xml$/.test(k)).sort()[0];
+  if (hoja1) {
+    const sxml = parseXML(textoDe(zip[hoja1]));
+    const filas = [...sxml.getElementsByTagName("*")].filter((n) => local(n) === "row");
+    if (filas.length) {
+      const celdas = [...filas[0].getElementsByTagName("*")].filter((n) => local(n) === "c");
+      tablaEncabezados = celdas
+        .map((c) => {
+          const tipo = c.getAttribute("t");
+          const vNode = [...c.getElementsByTagName("*")].find((n) => local(n) === "v");
+          const isNode = [...c.getElementsByTagName("*")].find((n) => local(n) === "is");
+          if (tipo === "s" && vNode) return shared[parseInt(vNode.textContent)] || "";
+          if (isNode) return [...isNode.getElementsByTagName("*")].filter((n) => local(n) === "t").map((t) => t.textContent).join("");
+          return vNode ? vNode.textContent : "";
+        })
+        .map((s) => (s || "").trim())
+        .filter(Boolean);
+    }
+  }
+  return { tipo: "xlsx", texto, cadenas: shared, tablaEncabezados };
 }
 
 // .pptx → { tipo, texto, diapositivas:[texto] }
