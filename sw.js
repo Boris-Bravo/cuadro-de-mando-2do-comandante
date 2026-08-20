@@ -1,5 +1,5 @@
 /* sw.js — Service Worker: permite usar la app sin internet (offline). */
-const CACHE = "cmc-v14";
+const CACHE = "cmc-v15";
 const ARCHIVOS = [
   "./",
   "./index.html",
@@ -17,6 +17,8 @@ const ARCHIVOS = [
   "./assets/js/modulos/corrector.js",
   "./assets/js/modulos/radiograma.js",
   "./assets/js/modulos/calendario.js",
+  "./assets/js/modulos/notas.js",
+  "./assets/js/modulos/contactos.js",
   "./assets/js/modulos/_placeholder.js",
   "./assets/icons/icon.svg",
   "./assets/icons/icon-192.png",

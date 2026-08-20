@@ -76,6 +76,25 @@ body::after {
 
 #app { min-height: 100%; display: flex; flex-direction: column; }
 
+/* ===== Calendario de Actividades ===== */
+.cal-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; gap: 10px; flex-wrap: wrap; }
+.cal-nav h3 { margin: 0; font-size: 16px; color: var(--verde-800); text-transform: capitalize; }
+.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+.cal-dow { text-align: center; font-size: 11px; font-weight: 700; color: var(--texto-suave); text-transform: uppercase; padding-bottom: 4px; }
+.cal-day {
+  position: relative; aspect-ratio: 1; border: 1px solid var(--linea); border-radius: 10px;
+  background: var(--panel-2); display: flex; align-items: flex-start; justify-content: flex-start;
+  padding: 6px; cursor: pointer; font-size: 13px; transition: .15s;
+}
+.cal-day:hover { border-color: var(--cyan); }
+.cal-day--fuera { visibility: hidden; cursor: default; }
+.cal-day--hoy { border-color: var(--oro); box-shadow: 0 0 0 1px var(--oro) inset; }
+.cal-day--sel { background: linear-gradient(180deg, #2f6b5f, #16342e); border-color: var(--cyan); color: #eafff9; box-shadow: var(--glow-cyan); }
+.cal-dots { position: absolute; bottom: 6px; left: 6px; display: flex; gap: 3px; }
+.cal-dot { width: 7px; height: 7px; border-radius: 50%; }
+.cal-dot--pendiente { background: var(--rojo); }
+.cal-dot--actividad { background: var(--cyan); }
+
 /* ===== Barra superior ===== */
 .topbar {
   display: flex; align-items: center; gap: 12px;

@@ -8,6 +8,8 @@ import { instructoresModulo } from "./modulos/instructores.js";
 import { correctorModulo } from "./modulos/corrector.js";
 import { radiogramaModulo } from "./modulos/radiograma.js";
 import { calendarioModulo } from "./modulos/calendario.js";
+import { notasModulo } from "./modulos/notas.js";
+import { contactosModulo } from "./modulos/contactos.js";
 
 // Registro de módulos del tablero.
 const MODULOS = [
@@ -43,8 +45,18 @@ const MODULOS = [
   },
   {
     id: "calendario", nombre: "Calendario de Actividades", icono: "📅", estado: "listo",
-    desc: "Agenda de actividades por fecha y bloc de notas para apuntes rápidos.",
+    desc: "Calendario mensual: marca actividades y pendientes en cada fecha.",
     render: calendarioModulo,
+  },
+  {
+    id: "notas", nombre: "Bloc de Notas", icono: "📝", estado: "listo",
+    desc: "Apuntes libres, organizados por fecha, para revisar cuando los necesites.",
+    render: notasModulo,
+  },
+  {
+    id: "contactos", nombre: "Agenda Telefónica de Contactos", icono: "📇", estado: "listo",
+    desc: "Teléfonos y correos de contacto. Permite importar desde un archivo .vcf.",
+    render: contactosModulo,
   },
 ];
 

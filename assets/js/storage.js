@@ -244,7 +244,7 @@ export async function borrarArchivo(rutaCompleta) {
 }
 
 /* ---------- Respaldo / restauración (traspaso manual entre dispositivos) ---------- */
-const MODULOS_RESPALDO = ["partes", "documentacion", "biblioteca", "instructores", "corrector", "radiograma", "calendario", "marca"];
+const MODULOS_RESPALDO = ["partes", "documentacion", "biblioteca", "instructores", "corrector", "radiograma", "calendario", "notas", "contactos", "marca"];
 
 // Exporta los datos del módulo actual (funciona igual en modo carpeta o local).
 export async function exportarRespaldo() {
