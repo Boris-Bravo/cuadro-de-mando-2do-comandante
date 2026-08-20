@@ -28,12 +28,17 @@ function render() {
   cont.appendChild(h("div", { class: "page-head" },
     h("div", {},
       h("h2", {}, "📇 Agenda Telefónica de Contactos"),
-      h("div", { class: "sub" }, "Teléfonos y correos. Puedes importarlos desde un archivo .vcf")),
+      h("div", { class: "sub" }, "Teléfonos y correos. Impórtalos o compártelos por WhatsApp o correo")),
     h("div", { class: "btn-row" },
-      h("label", { class: "btn btn--ghost", style: "cursor:pointer" }, "📥 Importar .vcf",
-        h("input", { type: "file", accept: ".vcf,text/vcard", style: "display:none",
-          onchange: (e) => { const f = e.target.files[0]; if (f) importarVCF(f); e.target.value = ""; } })),
       h("button", { class: "btn btn--primary", onclick: () => abrirEditor(nuevoContacto(), true) }, "＋ Nuevo contacto"))));
+
+  cont.appendChild(h("div", { class: "btn-row", style: "margin-bottom:14px;flex-wrap:wrap" },
+    h("label", { class: "btn btn--ghost btn--sm", style: "cursor:pointer" }, "📥 Importar .vcf",
+      h("input", { type: "file", accept: ".vcf,text/vcard", style: "display:none",
+        onchange: (e) => { const f = e.target.files[0]; if (f) importarVCF(f); e.target.value = ""; } })),
+    h("button", { class: "btn btn--ghost btn--sm", onclick: importarDesdeTexto }, "💬 Importar texto de WhatsApp"),
+    h("button", { class: "btn btn--gold btn--sm", onclick: () => exportarLista("whatsapp") }, "📤 Exportar por WhatsApp"),
+    h("button", { class: "btn btn--gold btn--sm", onclick: () => exportarLista("correo") }, "📤 Exportar por correo")));
 
   cont.appendChild(h("div", { class: "form-row" },
     h("div", { class: "field" },
@@ -73,6 +78,7 @@ function repintar() {
       h("div", { class: "list-item__actions" },
         c.telefono ? h("a", { class: "btn btn--gold btn--sm", href: `tel:${c.telefono.replace(/\s+/g, "")}` }, "📞") : null,
         c.email ? h("a", { class: "btn btn--gold btn--sm", href: `mailto:${c.email}` }, "✉️") : null,
+        h("button", { class: "btn btn--ghost btn--sm", title: "Compartir este contacto por WhatsApp", onclick: () => compartirWhatsApp(textoContacto(c)) }, "💬"),
         h("button", { class: "btn btn--ghost btn--sm", onclick: () => abrirEditor(structuredClone(c), false) }, "✏️"),
         h("button", { class: "btn btn--danger btn--sm", onclick: () => eliminarContacto(c) }, "🗑️"))));
   }
@@ -111,6 +117,92 @@ function abrirEditor(c, esNueva) {
     acciones.splice(1, 0, { texto: "🗑️ Eliminar", clase: "btn--danger", valor: "del", onClick: () => eliminarContacto(c, true) });
   }
   modal({ titulo: esNueva ? "＋ Nuevo contacto" : "✏️ Editar contacto", cuerpo, acciones });
+}
+
+/* =================== COMPARTIR / EXPORTAR =================== */
+function textoContacto(c) {
+  const lineas = [`👤 ${c.nombre || "Sin nombre"}`];
+  if (c.telefono) lineas.push(`📞 ${c.telefono}`);
+  if (c.telefono2) lineas.push(`📞 ${c.telefono2}`);
+  if (c.email) lineas.push(`✉️ ${c.email}`);
+  if (c.notas) lineas.push(c.notas);
+  return lineas.join("\n");
+}
+
+function compartirWhatsApp(texto) {
+  window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(texto)}`, "_blank");
+}
+
+function exportarLista(via) {
+  const lista = filtrados();
+  if (!lista.length) { toast("No hay contactos para exportar", "err"); return; }
+  if (lista.length > 60) toast("Son muchos contactos: el mensaje puede salir recortado. Para pasar todos usa \"Exportar respaldo\" en Configuración.", "");
+  const texto = lista.map(textoContacto).join("\n\n");
+  if (via === "whatsapp") compartirWhatsApp(texto);
+  else window.open(`mailto:?subject=${encodeURIComponent("Agenda de contactos")}&body=${encodeURIComponent(texto)}`, "_blank");
+}
+
+/* =================== IMPORTAR: agregar sin duplicar =================== */
+async function agregarContactosNuevos(encontrados) {
+  const existentes = new Set(datos.lista.map((c) => `${(c.nombre || "").toLowerCase()}|${(c.telefono || "").replace(/\s+/g, "")}`));
+  let nuevos = 0;
+  for (const c of encontrados) {
+    const clave = `${(c.nombre || "").toLowerCase()}|${(c.telefono || "").replace(/\s+/g, "")}`;
+    if (existentes.has(clave)) continue;
+    datos.lista.push({ id: idNuevo(), nombre: c.nombre || "", telefono: c.telefono || "", telefono2: c.telefono2 || "", email: c.email || "", notas: "", creado: Date.now() });
+    existentes.add(clave);
+    nuevos++;
+  }
+  await persistir();
+  const omitidos = encontrados.length - nuevos;
+  toast(`${nuevos} contacto(s) importado(s)${omitidos ? ` · ${omitidos} ya existían` : ""}`, nuevos ? "ok" : "");
+  render();
+}
+
+/* =================== IMPORTAR: pegar texto (ej. compartido por WhatsApp) =================== */
+function parseTextoContactos(texto) {
+  const bloques = texto.split(/\n\s*\n/);
+  const contactos = [];
+  for (const bloque of bloques) {
+    const lineas = bloque.split("\n").map((l) => l.trim()).filter(Boolean);
+    if (!lineas.length) continue;
+    let nombre = "", telefono = "", telefono2 = "", email = "";
+    for (const linea of lineas) {
+      const emailMatch = linea.match(/[\w.+-]+@[\w-]+\.[\w.-]+/);
+      if (emailMatch && !email) { email = emailMatch[0]; continue; }
+      const soloDigitos = linea.replace(/\D/g, "");
+      if (soloDigitos.length >= 6) {
+        const limpio = linea.replace(/^[^\d+]*/, "").trim();
+        if (!telefono) telefono = limpio; else if (!telefono2) telefono2 = limpio;
+        continue;
+      }
+      if (!nombre) nombre = linea.replace(/^👤\s*/, "").trim();
+    }
+    if (nombre || telefono || email) contactos.push({ nombre, telefono, telefono2, email });
+  }
+  return contactos;
+}
+
+function importarDesdeTexto() {
+  const area = h("textarea", { rows: "10", placeholder: "Pega aquí el texto de WhatsApp (uno o varios contactos, separados por una línea en blanco)…" });
+  modal({
+    titulo: "💬 Importar texto de WhatsApp",
+    cuerpo: h("div", {},
+      h("p", { class: "muted small", style: "margin-top:0" },
+        "Útil cuando te comparten un contacto como mensaje de texto (no como archivo adjunto). Si te llega como archivo .vcf, mejor usa \"Importar .vcf\"."),
+      h("div", { class: "field" }, h("label", {}, "Texto"), area)),
+    acciones: [
+      { texto: "Cancelar", clase: "btn--ghost", valor: null },
+      {
+        texto: "📥 Importar", clase: "btn--primary", valor: "ok",
+        onClick: () => {
+          const encontrados = parseTextoContactos(area.value);
+          if (!encontrados.length) { toast("No se reconoció ningún contacto en el texto", "err"); return false; }
+          agregarContactosNuevos(encontrados);
+        },
+      },
+    ],
+  });
 }
 
 async function eliminarContacto(c, desdeEditor = false) {
@@ -155,19 +247,7 @@ async function importarVCF(file) {
     const texto = await file.text();
     const encontrados = parseVCard(texto);
     if (!encontrados.length) { toast("No se encontraron contactos en el archivo", "err"); return; }
-    const existentes = new Set(datos.lista.map((c) => `${(c.nombre || "").toLowerCase()}|${(c.telefono || "").replace(/\s+/g, "")}`));
-    let nuevos = 0;
-    for (const c of encontrados) {
-      const clave = `${(c.nombre || "").toLowerCase()}|${(c.telefono || "").replace(/\s+/g, "")}`;
-      if (existentes.has(clave)) continue;
-      datos.lista.push({ id: idNuevo(), nombre: c.nombre, telefono: c.telefono, telefono2: c.telefono2, email: c.email, notas: "", creado: Date.now() });
-      existentes.add(clave);
-      nuevos++;
-    }
-    await persistir();
-    const omitidos = encontrados.length - nuevos;
-    toast(`${nuevos} contacto(s) importado(s)${omitidos ? ` · ${omitidos} ya existían` : ""}`, "ok");
-    render();
+    await agregarContactosNuevos(encontrados);
   } catch (e) {
     console.error(e);
     toast("No se pudo leer el archivo. Verifica que sea un .vcf válido", "err");

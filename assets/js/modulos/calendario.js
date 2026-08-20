@@ -61,6 +61,8 @@ function pintarNav() {
       h("button", { class: "btn btn--ghost btn--sm", onclick: () => { mesRef = new Date(mesRef.getFullYear(), mesRef.getMonth() + 1, 1); render(); } }, "›")));
 }
 
+const MAX_VISIBLES_DIA = 3;
+
 function pintarGrid() {
   const grid = h("div", { class: "cal-grid" });
   for (const d of DIAS_SEMANA) grid.appendChild(h("div", { class: "cal-dow" }, d));
@@ -74,19 +76,20 @@ function pintarGrid() {
 
   for (let d = 1; d <= diasEnMes; d++) {
     const fecha = isoDia(y, m, d);
-    const items = itemsDe(fecha);
-    const tienePendiente = items.some((i) => i.tipo === "pendiente" && !i.completado);
-    const tieneActividad = items.some((i) => i.tipo !== "pendiente" || i.completado);
+    const items = itemsDe(fecha).sort((a, b) => (a.hora || "").localeCompare(b.hora || ""));
     const clases = ["cal-day"];
     if (fecha === hoy) clases.push("cal-day--hoy");
     if (fecha === diaSel) clases.push("cal-day--sel");
-    const celda = h("div", { class: clases.join(" "), onclick: () => { diaSel = fecha; render(); } }, String(d));
-    if (items.length) {
-      const dots = h("div", { class: "cal-dots" });
-      if (tienePendiente) dots.appendChild(h("span", { class: "cal-dot cal-dot--pendiente" }));
-      if (tieneActividad) dots.appendChild(h("span", { class: "cal-dot cal-dot--actividad" }));
-      celda.appendChild(dots);
+    const celda = h("div", { class: clases.join(" "), onclick: () => { diaSel = fecha; render(); } },
+      h("span", { class: "cal-day__num" }, String(d)));
+    for (const it of items.slice(0, MAX_VISIBLES_DIA)) {
+      const esPendienteActivo = it.tipo === "pendiente" && !it.completado;
+      celda.appendChild(h("span", {
+        class: `cal-day__item ${esPendienteActivo ? "cal-day__item--pendiente" : "cal-day__item--actividad"}`,
+        title: it.titulo || "",
+      }, it.hora ? `${it.hora} ${it.titulo || ""}` : (it.titulo || "Sin título")));
     }
+    if (items.length > MAX_VISIBLES_DIA) celda.appendChild(h("span", { class: "cal-day__mas" }, `+${items.length - MAX_VISIBLES_DIA} más`));
     grid.appendChild(celda);
   }
   return grid;
