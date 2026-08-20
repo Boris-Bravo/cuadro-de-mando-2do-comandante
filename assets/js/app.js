@@ -7,6 +7,7 @@ import { bibliotecaModulo } from "./modulos/biblioteca.js";
 import { instructoresModulo } from "./modulos/instructores.js";
 import { correctorModulo } from "./modulos/corrector.js";
 import { radiogramaModulo } from "./modulos/radiograma.js";
+import { calendarioModulo } from "./modulos/calendario.js";
 
 // Registro de módulos del tablero.
 const MODULOS = [
@@ -39,6 +40,11 @@ const MODULOS = [
     id: "radiograma", nombre: "Radiograma y Fotograma", icono: "📡", estado: "listo",
     desc: "Mensajes para WhatsApp, mosaico de fotos (fotograma) y exportación del radiograma a Word.",
     render: radiogramaModulo,
+  },
+  {
+    id: "calendario", nombre: "Calendario de Actividades", icono: "📅", estado: "listo",
+    desc: "Agenda de actividades por fecha y bloc de notas para apuntes rápidos.",
+    render: calendarioModulo,
   },
 ];
 
