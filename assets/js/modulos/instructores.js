@@ -15,12 +15,14 @@ const CATEGORIAS = ["Oficiales", "Suboficiales", "Sargentos", "EE.CC."];
 let ctx, cont, datos;
 let vista = { modo: "lista", id: null };
 let fTexto = "";
+let filtroCategoria = "todos";
 
 export async function instructoresModulo(contenedor, contexto) {
   ctx = contexto; cont = contenedor;
   datos = await ctx.store.leerJSON(ARCHIVO, null) || { lista: [] };
   if (!datos.lista) datos.lista = [];
   vista = { modo: "lista", id: null };
+  filtroCategoria = "todos";
   render();
 }
 
@@ -51,7 +53,17 @@ function renderLista() {
       h("div", { class: "sub" }, "Ficha, foto, situación y documentos de cada instructor")),
     h("div", { class: "btn-row" },
       h("button", { class: "btn btn--ghost", onclick: exportarRespaldo }, "⬇️ Exportar respaldo"),
-      h("button", { class: "btn btn--primary", onclick: () => abrirEditor(nuevoInstructor(), true) }, "＋ Nuevo instructor"))));
+      h("button", { class: "btn btn--primary", onclick: () => abrirEditor(nuevoInstructor(CATEGORIAS.includes(filtroCategoria) ? filtroCategoria : "Oficiales"), true) }, "＋ Nuevo instructor"))));
+
+  const chips = h("div", { class: "chips", style: "margin-bottom:12px" });
+  for (const val of ["todos", ...CATEGORIAS]) {
+    const n = val === "todos" ? datos.lista.length : datos.lista.filter((i) => (i.categoria || "Sin categoría") === val).length;
+    chips.appendChild(h("span", {
+      class: `chip ${filtroCategoria === val ? "active" : ""}`,
+      onclick: () => { filtroCategoria = val; render(); },
+    }, `${val === "todos" ? "Todos" : val} (${n})`));
+  }
+  cont.appendChild(chips);
 
   cont.appendChild(h("div", { class: "form-row" },
     h("div", { class: "field" },
@@ -66,6 +78,7 @@ function renderLista() {
 function listaFiltrada() {
   const t = fTexto.trim().toLowerCase();
   return datos.lista
+    .filter((i) => filtroCategoria === "todos" || (i.categoria || "Sin categoría") === filtroCategoria)
     .filter((i) => !t || [i.nombres, i.apellidos, i.grado, i.especialidad].some((x) => (x || "").toLowerCase().includes(t)))
     .sort((a, b) => nombreCompleto(a).localeCompare(nombreCompleto(b)));
 }
@@ -97,6 +110,13 @@ function repintarLista() {
       h("p", { class: "muted" }, "Agrega el primero con “Nuevo instructor”.")));
     return;
   }
+  if (filtroCategoria !== "todos") {
+    const grid = h("div", { class: "grid-modulos" });
+    for (const i of lista) grid.appendChild(tarjetaInstructor(i));
+    wrap.appendChild(grid);
+    return;
+  }
+
   const grupos = new Map(CATEGORIAS.map((c) => [c, []]));
   grupos.set("Sin categoría", []);
   for (const i of lista) grupos.get(CATEGORIAS.includes(i.categoria) ? i.categoria : "Sin categoría").push(i);
@@ -208,9 +228,9 @@ function iconoDoc(nombre = "", mime = "") {
 }
 
 /* =================== CREAR / EDITAR FICHA =================== */
-function nuevoInstructor() {
+function nuevoInstructor(categoria = "Oficiales") {
   return {
-    id: idNuevo(), categoria: "Oficiales", grado: "", nombres: "", apellidos: "", especialidad: "", unidad: "",
+    id: idNuevo(), categoria, grado: "", nombres: "", apellidos: "", especialidad: "", unidad: "",
     ci: "", nacimiento: "", telefono: "", direccion: "", alta: fechaHoy(),
     fotoRuta: "", situacion: "", documentos: [], creado: Date.now(), actualizado: Date.now(),
   };
