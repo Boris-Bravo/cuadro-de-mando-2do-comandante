@@ -49,14 +49,11 @@ body {
   margin: 0;
   font-family: var(--fuente);
   color: var(--texto);
-  background: var(--bg-0);
   -webkit-font-smoothing: antialiased;
   overflow-x: hidden;
-}
-/* Fondo animado con destellos y rejilla HUD */
-body::before {
-  content: "";
-  position: fixed; inset: 0; z-index: -2;
+  /* Fondo multicam: pegado al documento (no "fixed") para que no se repinte
+     en cada scroll — eso es lo que hacía lenta la app en celular antes. */
+  background-color: var(--bg-0);
   background-image:
     radial-gradient(900px 500px at 12% -8%, rgba(53,227,211,.14), transparent 60%),
     radial-gradient(1000px 600px at 108% 10%, rgba(138,162,77,.16), transparent 55%),
