@@ -237,6 +237,29 @@ async function abrirConfig() {
         catch (err) { toast("Respaldo no válido", "err"); }
       } })));
 
+  // Buscar actualizaciones: limpia solo la copia offline de la app (Service Worker +
+  // caché de archivos). NO toca los datos guardados (IndexedDB / carpeta) — es seguro.
+  const actualizar = h("div", { class: "btn-row mt" },
+    h("button", { class: "btn btn--ghost btn--sm", onclick: async (ev) => {
+      const btn = ev.currentTarget;
+      btn.disabled = true;
+      try {
+        if ("serviceWorker" in navigator) {
+          const regs = await navigator.serviceWorker.getRegistrations();
+          await Promise.all(regs.map((r) => r.unregister()));
+        }
+        if ("caches" in window) {
+          const keys = await caches.keys();
+          await Promise.all(keys.map((k) => caches.delete(k)));
+        }
+        toast("Actualizando la app…", "ok");
+        setTimeout(() => location.reload(), 600);
+      } catch (err) {
+        btn.disabled = false;
+        toast("No se pudo actualizar", "err");
+      }
+    } }, "🔄 Buscar actualizaciones"));
+
   cuerpo.append(
     h("div", { class: "panel", style: "margin:0 0 14px;box-shadow:none" }, info),
     h("h3", { style: "margin:0 0 6px;font-size:14px;color:var(--verde-700)" }, "Almacenamiento"),
@@ -244,6 +267,9 @@ async function abrirConfig() {
     h("h3", { style: "margin:16px 0 6px;font-size:14px;color:var(--verde-700)" }, "Respaldo manual"),
     respaldoInfo,
     respaldo,
+    h("h3", { style: "margin:16px 0 6px;font-size:14px;color:var(--verde-700)" }, "Actualizar la app"),
+    h("p", { class: "muted small" }, "Si acabas de recibir una actualización y no la ves, usa este botón. Es seguro: no borra tus partes, instructores ni ningún dato guardado — solo limpia la copia de la app guardada para uso sin conexión."),
+    actualizar,
   );
 
   // Emblemas / Logos
