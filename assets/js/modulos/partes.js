@@ -12,7 +12,7 @@ import { blobWord, descargar, escapar } from "../export-word.js";
 const ARCHIVO = "partes";
 
 const COLS_DEF = ["Efectivo", "Presentes", "Servicio", "Comisión", "Permiso", "Sanidad", "Arresto", "Otros"];
-const FILAS_CUADROS = ["Tte. Coronel", "Mayor", "Capitán", "Teniente", "Subteniente", "Suboficiales", "Sargentos"];
+const FILAS_CUADROS = ["Tte. Coronel", "Mayor", "Capitán", "Teniente", "Subteniente", "Suboficiales", "Sargentos", "EE.CC."];
 
 // Parte de Tropa: filas = categorías del parte, columnas = compañías/subunidades (al revés que Cuadros),
 // replicando el esquema oficial del "Parte de Relevo" (anverso: cantidades por compañía; reverso: demostración/novedades).

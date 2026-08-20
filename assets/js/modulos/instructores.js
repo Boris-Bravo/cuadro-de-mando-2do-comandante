@@ -7,8 +7,10 @@
  * carpeta de datos; los metadatos en instructores.json.
  */
 import { h, limpiar, toast, modal, confirmar, fechaHoy, fechaLarga, idNuevo } from "../ui.js";
+import { blobWord, descargar, escapar } from "../export-word.js";
 
 const ARCHIVO = "instructores";
+const CATEGORIAS = ["Oficiales", "Suboficiales", "Sargentos", "EE.CC."];
 
 let ctx, cont, datos;
 let vista = { modo: "lista", id: null };
@@ -47,7 +49,9 @@ function renderLista() {
     h("div", {},
       h("h2", {}, "🎖️ Libro de Vida de Instructores"),
       h("div", { class: "sub" }, "Ficha, foto, situación y documentos de cada instructor")),
-    h("button", { class: "btn btn--primary", onclick: () => abrirEditor(nuevoInstructor(), true) }, "＋ Nuevo instructor")));
+    h("div", { class: "btn-row" },
+      h("button", { class: "btn btn--ghost", onclick: exportarRespaldo }, "⬇️ Exportar respaldo"),
+      h("button", { class: "btn btn--primary", onclick: () => abrirEditor(nuevoInstructor(), true) }, "＋ Nuevo instructor"))));
 
   cont.appendChild(h("div", { class: "form-row" },
     h("div", { class: "field" },
@@ -66,6 +70,21 @@ function listaFiltrada() {
     .sort((a, b) => nombreCompleto(a).localeCompare(nombreCompleto(b)));
 }
 
+function tarjetaInstructor(i) {
+  const foto = h("img", { alt: "", style: "width:64px;height:64px;border-radius:50%;object-fit:cover;background:var(--panel-2);border:2px solid var(--oliva)" });
+  foto.src = fotoPlaceholder();
+  pintarFoto(foto, i.fotoRuta);
+  return h("div", { class: "modulo-card", style: "min-height:auto;cursor:pointer", onclick: () => { vista = { modo: "detalle", id: i.id }; render(); } },
+    h("div", { style: "display:flex;gap:14px;align-items:center" },
+      foto,
+      h("div", { style: "min-width:0" },
+        h("h3", { class: "modulo-card__title", style: "font-size:16px" }, nombreCompleto(i)),
+        h("p", { class: "modulo-card__desc", style: "margin:2px 0 0" }, i.especialidad || "Sin especialidad"),
+        i.unidad ? h("p", { class: "modulo-card__desc", style: "margin:0" }, i.unidad) : null)),
+    h("div", { class: "muted small", style: "margin-top:6px" },
+      `${(i.documentos || []).length} documento(s)`));
+}
+
 function repintarLista() {
   const wrap = document.getElementById("instWrap");
   if (!wrap) return;
@@ -78,22 +97,37 @@ function repintarLista() {
       h("p", { class: "muted" }, "Agrega el primero con “Nuevo instructor”.")));
     return;
   }
-  const grid = h("div", { class: "grid-modulos" });
-  for (const i of lista) {
-    const foto = h("img", { alt: "", style: "width:64px;height:64px;border-radius:50%;object-fit:cover;background:var(--panel-2);border:2px solid var(--oliva)" });
-    foto.src = fotoPlaceholder();
-    pintarFoto(foto, i.fotoRuta);
-    grid.appendChild(h("div", { class: "modulo-card", style: "min-height:auto;cursor:pointer", onclick: () => { vista = { modo: "detalle", id: i.id }; render(); } },
-      h("div", { style: "display:flex;gap:14px;align-items:center" },
-        foto,
-        h("div", { style: "min-width:0" },
-          h("h3", { class: "modulo-card__title", style: "font-size:16px" }, nombreCompleto(i)),
-          h("p", { class: "modulo-card__desc", style: "margin:2px 0 0" }, i.especialidad || "Sin especialidad"),
-          i.unidad ? h("p", { class: "modulo-card__desc", style: "margin:0" }, i.unidad) : null)),
-      h("div", { class: "muted small", style: "margin-top:6px" },
-        `${(i.documentos || []).length} documento(s)`)));
+  const grupos = new Map(CATEGORIAS.map((c) => [c, []]));
+  grupos.set("Sin categoría", []);
+  for (const i of lista) grupos.get(CATEGORIAS.includes(i.categoria) ? i.categoria : "Sin categoría").push(i);
+
+  for (const [cat, items] of grupos) {
+    if (!items.length) continue;
+    wrap.appendChild(h("h3", { style: "margin:18px 0 8px;color:var(--verde-800)" }, `${cat} (${items.length})`));
+    const grid = h("div", { class: "grid-modulos" });
+    for (const i of items) grid.appendChild(tarjetaInstructor(i));
+    wrap.appendChild(grid);
   }
-  wrap.appendChild(grid);
+}
+
+function exportarRespaldo() {
+  const grupos = new Map(CATEGORIAS.map((c) => [c, []]));
+  grupos.set("Sin categoría", []);
+  for (const i of datos.lista) grupos.get(CATEGORIAS.includes(i.categoria) ? i.categoria : "Sin categoría").push(i);
+
+  let cuerpo = `<h1>Libro de Vida de Instructores</h1><div class="encabezado sub">Respaldo generado el ${escapar(fechaLarga(fechaHoy()))} · Total: ${datos.lista.length}</div>`;
+  for (const [cat, items] of grupos) {
+    if (!items.length) continue;
+    cuerpo += `<h2 style="text-align:left;margin-top:18pt">${escapar(cat)} (${items.length})</h2>`;
+    cuerpo += `<table><thead><tr><th>Grado</th><th>Nombres y apellidos</th><th>Especialidad</th><th>Unidad</th><th>C.I.</th><th>Teléfono</th><th>Fecha de alta</th></tr></thead><tbody>`;
+    for (const i of items.slice().sort((a, b) => nombreCompleto(a).localeCompare(nombreCompleto(b)))) {
+      cuerpo += `<tr><td>${escapar(i.grado)}</td><td>${escapar([i.apellidos, i.nombres].filter(Boolean).join(" "))}</td><td>${escapar(i.especialidad)}</td><td>${escapar(i.unidad)}</td><td>${escapar(i.ci)}</td><td>${escapar(i.telefono)}</td><td>${i.alta ? escapar(fechaLarga(i.alta)) : ""}</td></tr>`;
+    }
+    cuerpo += `</tbody></table>`;
+  }
+  const blob = blobWord("Libro de Vida de Instructores", cuerpo, { size: "29.7cm 21cm", margin: "1.5cm 2cm" });
+  descargar(blob, `Libro_de_Vida_Instructores_${fechaHoy()}.doc`);
+  toast("Respaldo exportado", "ok");
 }
 
 function fotoPlaceholder() {
@@ -110,6 +144,7 @@ function renderDetalle(id) {
     h("div", {}, h("h2", {}, "🎖️ Ficha del instructor")),
     h("div", { class: "btn-row" },
       h("button", { class: "btn btn--ghost", onclick: () => { vista = { modo: "lista" }; render(); } }, "← Volver"),
+      h("button", { class: "btn btn--ghost", onclick: () => exportarFicha(i) }, "📄 Exportar ficha"),
       h("button", { class: "btn btn--gold", onclick: () => abrirEditor(structuredClone(i), false) }, "✏️ Editar"),
       h("button", { class: "btn btn--danger", onclick: () => eliminarInstructor(i) }, "🗑️ Eliminar"))));
 
@@ -120,7 +155,7 @@ function renderDetalle(id) {
 
   const datosGrid = h("div", { style: "display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px 20px;flex:1" });
   const campos = [
-    ["Grado", i.grado], ["Especialidad", i.especialidad], ["Unidad", i.unidad],
+    ["Categoría", i.categoria || "Sin categoría"], ["Grado", i.grado], ["Especialidad", i.especialidad], ["Unidad", i.unidad],
     ["C.I. / Documento", i.ci], ["Fecha de nacimiento", i.nacimiento ? fechaLarga(i.nacimiento) : ""],
     ["Teléfono", i.telefono], ["Dirección", i.direccion], ["Fecha de alta", i.alta ? fechaLarga(i.alta) : ""],
   ];
@@ -175,7 +210,7 @@ function iconoDoc(nombre = "", mime = "") {
 /* =================== CREAR / EDITAR FICHA =================== */
 function nuevoInstructor() {
   return {
-    id: idNuevo(), grado: "", nombres: "", apellidos: "", especialidad: "", unidad: "",
+    id: idNuevo(), categoria: "Oficiales", grado: "", nombres: "", apellidos: "", especialidad: "", unidad: "",
     ci: "", nacimiento: "", telefono: "", direccion: "", alta: fechaHoy(),
     fotoRuta: "", situacion: "", documentos: [], creado: Date.now(), actualizado: Date.now(),
   };
@@ -186,6 +221,8 @@ function abrirEditor(inst, esNuevo) {
     const inp = h("input", { type: tipo, value: val || "" });
     return { el: h("div", { class: "field" }, h("label", {}, et), inp), inp };
   };
+  const catSel = h("select", {}, ...CATEGORIAS.map((c) => h("option", { value: c, selected: (inst.categoria || "Oficiales") === c }, c)));
+  const cat = { el: h("div", { class: "field" }, h("label", {}, "Categoría"), catSel), inp: catSel };
   const g = campo("Grado", inst.grado);
   const nom = campo("Nombres", inst.nombres);
   const ape = campo("Apellidos", inst.apellidos);
@@ -213,9 +250,10 @@ function abrirEditor(inst, esNuevo) {
     h("div", { style: "display:flex;gap:16px;align-items:center;margin-bottom:14px" },
       fotoPrev,
       h("label", { class: "btn btn--ghost", style: "cursor:pointer" }, "📷 Cambiar foto", fotoInput)),
-    h("div", { class: "form-row" }, g.el, esp.el),
+    h("div", { class: "form-row" }, cat.el, esp.el),
+    h("div", { class: "form-row" }, g.el, uni.el),
     h("div", { class: "form-row" }, nom.el, ape.el),
-    h("div", { class: "form-row" }, uni.el, ci.el),
+    h("div", { class: "form-row" }, ci.el),
     h("div", { class: "form-row" }, nac.el, tel.el),
     h("div", { class: "form-row" }, dir.el, alta.el),
     h("div", { class: "field" }, h("label", {}, "Situación particular"), sit));
@@ -230,7 +268,7 @@ function abrirEditor(inst, esNuevo) {
         onClick: () => {
           if (!nom.inp.value.trim() && !ape.inp.value.trim()) { toast("Indica al menos nombres o apellidos", "err"); return false; }
           Object.assign(inst, {
-            grado: g.inp.value.trim(), nombres: nom.inp.value.trim(), apellidos: ape.inp.value.trim(),
+            categoria: cat.inp.value, grado: g.inp.value.trim(), nombres: nom.inp.value.trim(), apellidos: ape.inp.value.trim(),
             especialidad: esp.inp.value.trim(), unidad: uni.inp.value.trim(), ci: ci.inp.value.trim(),
             nacimiento: nac.inp.value, telefono: tel.inp.value.trim(), direccion: dir.inp.value.trim(),
             alta: alta.inp.value, situacion: sit.value.trim(), actualizado: Date.now(),
@@ -256,6 +294,165 @@ async function guardarInstructor(inst, esNuevo, nuevaFoto) {
     vista = { modo: "detalle", id: inst.id };
     render();
   } catch (e) { console.error(e); toast("No se pudo guardar", "err"); }
+}
+
+/* =================== EXPORTAR FICHA INDIVIDUAL (foto + documentos en ZIP) =================== */
+function blobADataURL(blob) {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(r.result);
+    r.onerror = reject;
+    r.readAsDataURL(blob);
+  });
+}
+
+let tablaCRC32;
+function crc32(bytes) {
+  if (!tablaCRC32) {
+    tablaCRC32 = new Uint32Array(256);
+    for (let n = 0; n < 256; n++) {
+      let c = n;
+      for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+      tablaCRC32[n] = c >>> 0;
+    }
+  }
+  let c = 0xffffffff;
+  for (let i = 0; i < bytes.length; i++) c = tablaCRC32[(c ^ bytes[i]) & 0xff] ^ (c >>> 8);
+  return (c ^ 0xffffffff) >>> 0;
+}
+
+// ZIP mínimo sin compresión ("store"): suficiente para empaquetar la ficha + documentos originales.
+function construirZip(entradas) {
+  const ahora = new Date();
+  const dosFecha = (((ahora.getFullYear() - 1980) & 0x7f) << 9) | ((ahora.getMonth() + 1) << 5) | ahora.getDate();
+  const dosHora = (ahora.getHours() << 11) | (ahora.getMinutes() << 5) | (ahora.getSeconds() >> 1);
+  const partes = [];
+  const centrales = [];
+  let offset = 0;
+
+  for (const { nombre, bytes } of entradas) {
+    const nombreBytes = new TextEncoder().encode(nombre);
+    const crc = crc32(bytes);
+
+    const local = new Uint8Array(30 + nombreBytes.length);
+    const dvL = new DataView(local.buffer);
+    dvL.setUint32(0, 0x04034b50, true);
+    dvL.setUint16(4, 20, true);
+    dvL.setUint16(6, 0, true);
+    dvL.setUint16(8, 0, true);
+    dvL.setUint16(10, dosHora, true);
+    dvL.setUint16(12, dosFecha, true);
+    dvL.setUint32(14, crc, true);
+    dvL.setUint32(18, bytes.length, true);
+    dvL.setUint32(22, bytes.length, true);
+    dvL.setUint16(26, nombreBytes.length, true);
+    dvL.setUint16(28, 0, true);
+    local.set(nombreBytes, 30);
+    partes.push(local, bytes);
+
+    const central = new Uint8Array(46 + nombreBytes.length);
+    const dvC = new DataView(central.buffer);
+    dvC.setUint32(0, 0x02014b50, true);
+    dvC.setUint16(4, 20, true);
+    dvC.setUint16(6, 20, true);
+    dvC.setUint16(8, 0, true);
+    dvC.setUint16(10, 0, true);
+    dvC.setUint16(12, dosHora, true);
+    dvC.setUint16(14, dosFecha, true);
+    dvC.setUint32(16, crc, true);
+    dvC.setUint32(20, bytes.length, true);
+    dvC.setUint32(24, bytes.length, true);
+    dvC.setUint16(28, nombreBytes.length, true);
+    dvC.setUint32(38, 0, true);
+    dvC.setUint32(42, offset, true);
+    central.set(nombreBytes, 46);
+    centrales.push(central);
+
+    offset += local.length + bytes.length;
+  }
+
+  const centralStart = offset;
+  const centralSize = centrales.reduce((s, c) => s + c.length, 0);
+  const eocd = new Uint8Array(22);
+  const dvE = new DataView(eocd.buffer);
+  dvE.setUint32(0, 0x06054b50, true);
+  dvE.setUint16(8, entradas.length, true);
+  dvE.setUint16(10, entradas.length, true);
+  dvE.setUint32(12, centralSize, true);
+  dvE.setUint32(16, centralStart, true);
+
+  return new Blob([...partes, ...centrales, eocd], { type: "application/zip" });
+}
+
+function nombreSinColision(nombreDeseado, usados) {
+  let nombre = nombreDeseado.replace(/[\\/:*?"<>|]+/g, "_") || "documento";
+  if (!usados.has(nombre.toLowerCase())) { usados.add(nombre.toLowerCase()); return nombre; }
+  const punto = nombre.lastIndexOf(".");
+  const base = punto > 0 ? nombre.slice(0, punto) : nombre;
+  const ext = punto > 0 ? nombre.slice(punto) : "";
+  let n = 2;
+  while (usados.has(`${base}_${n}${ext}`.toLowerCase())) n++;
+  nombre = `${base}_${n}${ext}`;
+  usados.add(nombre.toLowerCase());
+  return nombre;
+}
+
+async function exportarFicha(inst) {
+  try {
+    let fotoDataUrl = "";
+    if (inst.fotoRuta) {
+      const blob = await ctx.store.leerArchivo(inst.fotoRuta);
+      if (blob) fotoDataUrl = await blobADataURL(blob);
+    }
+    const campos = [
+      ["Categoría", inst.categoria || "Sin categoría"], ["Grado", inst.grado], ["Especialidad", inst.especialidad],
+      ["Unidad", inst.unidad], ["C.I. / Documento", inst.ci],
+      ["Fecha de nacimiento", inst.nacimiento ? fechaLarga(inst.nacimiento) : ""],
+      ["Teléfono", inst.telefono], ["Dirección", inst.direccion],
+      ["Fecha de alta", inst.alta ? fechaLarga(inst.alta) : ""],
+    ];
+    let cuerpo = `<h1>Ficha del instructor</h1>`;
+    if (fotoDataUrl) cuerpo += `<div style="text-align:center;margin-bottom:12pt"><img src="${fotoDataUrl}" style="width:130pt;height:130pt;object-fit:cover;border:1px solid #000"></div>`;
+    cuerpo += `<h2 style="text-align:left">${escapar(nombreCompleto(inst))}</h2><table><tbody>`;
+    for (const [et, val] of campos) cuerpo += `<tr><td style="font-weight:bold;width:35%">${escapar(et)}</td><td>${escapar(val || "—")}</td></tr>`;
+    cuerpo += `</tbody></table>`;
+    cuerpo += `<h2 style="text-align:left;margin-top:16pt">Situación particular</h2><p>${escapar(inst.situacion || "Sin observaciones registradas.")}</p>`;
+    const docs = inst.documentos || [];
+    if (docs.length) {
+      cuerpo += `<h2 style="text-align:left;margin-top:16pt">Documentos adjuntos</h2><ul>`;
+      for (const d of docs) cuerpo += `<li>${escapar(d.titulo || d.nombreOriginal)} (${escapar(d.nombreOriginal)})</li>`;
+      cuerpo += `</ul>`;
+    }
+    const docBlob = blobWord(`Ficha - ${nombreCompleto(inst)}`, cuerpo);
+    const nombreBase = nombreCompleto(inst).replace(/[^\w\-]+/g, "_");
+
+    let incluirDocs = false;
+    if (docs.length) {
+      incluirDocs = await confirmar(
+        `Esta ficha tiene ${docs.length} documento(s) adjunto(s) (memorándums, solicitudes, etc.). ¿Deseas incluirlos junto con la ficha en un archivo ZIP?`,
+        { titulo: "Incluir documentos", textoOk: "Sí, incluir" });
+    }
+
+    if (!incluirDocs) {
+      descargar(docBlob, `Ficha_${nombreBase}.doc`);
+      toast("Ficha exportada", "ok");
+      return;
+    }
+
+    const usados = new Set();
+    const entradas = [{ nombre: nombreSinColision("Ficha.doc", usados), bytes: new Uint8Array(await docBlob.arrayBuffer()) }];
+    for (const d of docs) {
+      const blob = await ctx.store.leerArchivo(d.ruta);
+      if (!blob) continue;
+      const nombre = nombreSinColision(d.nombreOriginal || d.titulo || "documento", usados);
+      entradas.push({ nombre: `Documentos/${nombre}`, bytes: new Uint8Array(await blob.arrayBuffer()) });
+    }
+    descargar(construirZip(entradas), `Ficha_${nombreBase}.zip`);
+    toast("Ficha y documentos exportados", "ok");
+  } catch (e) {
+    console.error(e);
+    toast("No se pudo exportar la ficha", "err");
+  }
 }
 
 async function eliminarInstructor(i) {
