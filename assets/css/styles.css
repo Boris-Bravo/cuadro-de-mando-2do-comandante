@@ -99,6 +99,16 @@ body::after {
 .cal-day__item--actividad { background: rgba(53, 227, 211, .18); color: var(--cyan); }
 .cal-day__mas { font-size: 10px; color: var(--texto-suave); padding-left: 3px; }
 
+/* ===== Bloc de Notas: lienzo de dibujo ===== */
+.draw-canvas {
+  width: 100%; height: min(60vh, 460px); touch-action: none; display: block;
+  border: 1px solid var(--linea); border-radius: 10px; background: #fff; cursor: crosshair;
+}
+.draw-swatch { width: 26px; height: 26px; border-radius: 50%; cursor: pointer; display: inline-block; border: 2px solid transparent; }
+.draw-swatch--activo { border-color: var(--cyan); box-shadow: var(--glow-cyan); }
+.draw-size { border-radius: 50%; background: var(--texto); cursor: pointer; display: inline-block; border: 2px solid transparent; }
+.draw-size--activo { border-color: var(--cyan); }
+
 /* ===== Barra superior ===== */
 .topbar {
   display: flex; align-items: center; gap: 12px;
