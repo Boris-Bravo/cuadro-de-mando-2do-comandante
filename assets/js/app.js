@@ -270,7 +270,6 @@ async function abrirConfig() {
 async function pantallaBienvenida() {
   limpiar(vista);
   const e = store.estado();
-  const fondo = h("div", { class: "bienvenida-fondo" });
   const card = h("div", { class: "panel", style: "max-width:620px;margin:30px auto" });
   const emb = emblemasHero(); if (emb) card.appendChild(emb);
   card.appendChild(h("h2", { style: "color:var(--verde-800);margin-top:0" }, "Bienvenido, mi 2do Comandante"));
@@ -297,8 +296,7 @@ async function pantallaBienvenida() {
     card.appendChild(h("button", { class: "btn btn--primary", onclick: () => { store.usarLocal(); actualizarPill(); irInicio(); } },
       "Continuar (solo este equipo)"));
   }
-  fondo.appendChild(card);
-  vista.appendChild(fondo);
+  vista.appendChild(card);
 }
 
 /* ---------------- Saludo por voz ---------------- */
@@ -335,6 +333,10 @@ function saludoVoz() {
 
 /* ---------------- Arranque ---------------- */
 async function arrancar() {
+  // Se engancha antes que cualquier await para no perder el primer toque
+  // del usuario, que puede llegar antes de que termine de cargar todo.
+  saludoVoz();
+
   document.getElementById("btnSettings").addEventListener("click", abrirConfig);
   document.getElementById("btnBack").addEventListener("click", irInicio);
   document.getElementById("brandHome").addEventListener("click", irInicio);
@@ -356,8 +358,6 @@ async function arrancar() {
   if ("serviceWorker" in navigator) {
     navigator.serviceWorker.register("sw.js").catch(() => {});
   }
-
-  saludoVoz();
 }
 
 window.addEventListener("hashchange", () => {
